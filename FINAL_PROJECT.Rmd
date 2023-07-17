@@ -1,0 +1,320 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+---
+##    PACKAGES USED
+```{r}
+mozart <- c("readxl","dplyr","tidyverse","ggplot2","readr","forecast","tseries","astsa","dplyr","tidyverse")
+lapply(mozart, library, character.only = TRUE)
+```
+
+##    GET DATA
+```{r}
+fuel <- read_excel("~/Copy of petrol and diesel time series data.xlsx")
+View(fuel)
+gdp <- read.csv("export.csv")
+head(fuel)
+petrol <- fuel$AVERAGE.PETROL
+diesel <- fuel$AVERAGE.DIESEL
+head(gdp)
+head(petrol)
+head(diesel)
+```
+
+
+##    CHECK FOR OUTLIERS
+GDP has outliers at the values 1838.2100 1816.5471 1708.0014 1572.3457 1410.5320 1336.8833 1315.8022 1210.3854 1136.8699 971.6330 951.6878
+```{r}
+boxplot(diesel)
+boxplot(diesel)$out
+boxplot(gdp$GDP.Per.Capita)$out
+```
+
+##    REMOVING OUTLIERS
+
+###   GET THE ROWS THET ARE IN
+```{r}
+outliers <- boxplot(gdp$GDP.Per.Capita, plot = FALSE)$out
+boxplot(outliers)
+gdp.out <- gdp[which(gdp$GDP.Per.Capita %in% outliers),]
+gdp.out <- gdp.out
+gdp.out
+```
+
+##    PREPARING THE TIMESERIES
+```{r}
+gdp.ts <-  ts(gdp$GDP.Per.Capita, start = 1960, frequency = 1)
+gdp.ts
+autoplot(gdp.ts)
+petrol.ts <- ts(petrol, frequency = 12, start = c(2010,12))
+petrol.ts
+autoplot(petrol.ts)
+diesel.ts <- ts(diesel, frequency = 12, start = c(2010,12))
+autoplot(diesel.ts)
+```
+
+##    STATIONERITY
+
+All the three were non stationery
+```{r}
+diesel.st <- adf.test(diesel.ts)
+diesel.st
+gdp.st <- adf.test(gdp.ts)
+gdp.st
+petrol.st <-adf.test(petrol.ts)
+petrol.st
+
+
+kpss.test(diesel.ts)
+kpss.test(petrol.ts)
+kpss.test(gdp.ts)
+
+
+```
+p-value>0.1 indicates stationary
+
+
+##    GETTING THE TRENDS AND SEASONALITY
+```{r}
+autoplot(decompose(diesel.ts, type = "multiplicative"))
+autoplot(decompose(diesel.ts))
+autoplot(decompose(petrol.ts))
+autoplot(decompose(petrol.ts, type = "multiplicative"))
+GGally::ggpairs(diesel.ts)
+GGally::ggpairs(petrol.ts)
+GGally::ggpairs(gdp.ts)
+petrol.ts
+gdp.ts
+diesel.ts
+
+```
+
+##    MOVING AVERAGES
+```{r}
+gdp.ma <- TTR::SMA(gdp$GDP.Per.Capita, n = 4)
+gdp.ma
+petrol.ma <- TTR::SMA(petrol, n = 4)
+diesel.ma <- TTR::SMA(diesel, n = 4)
+plot(gdp.ma, type = "l", col = "green")
+plot(petrol.ma, type = "l", col = "blue")
+lines(diesel.ma, type = "l")
+```
+
+##    AUTOCORELATION FUNCTION
+due to non stationerity we differenciate
+
+PACF GIVES THE AR
+ACF GIVES  THE MA
+```{r}
+diesel.diff <- diff(diesel.ts)
+diesel.diff
+gdp.diff <- diff(gdp.ts)
+petrol.diff <- diff(petrol.ts)
+
+gdp.acf <- acf(gdp.diff)#1,2,3,6,10,11
+gdp.pacf <- pacf(gdp.diff)#1,4,13
+
+petrol.acf <- acf(petrol.diff)#0,1
+petrol.pacf <- pacf(petrol.diff)#0,1
+
+diesel.diff2 <- diff(diesel.ts,differences = 2)#lag = 3, differences = 2)
+
+diesel.acf <- acf(diesel.diff2,lag.max = 10)#0,1
+diesel.pacf <- pacf(diesel.diff2)#1,2,3
+```
+
+
+
+##    FITTING AR MODEL
+gdp has AR of AR(1) and AR(4)
+
+gdp has MA of MA(1), MA(2) and MA(3)
+
+check the likelihood for the best model
+
+best model for gdp is ARIMA(4,1,1) it has the lowest log likelihood
+
+petrol has a AR of AR(0) ans MA of MA(0)
+
+ARIMA(0,1,0)
+
+diesel has best ARIMA at ARIMA(1,2,0)
+```{r}
+#1,2,3,6,10,11
+#1,4,13
+
+gdp.arima <- arima(gdp.diff,order = c(1,1,1))
+gdp.arima1 <- arima(gdp.diff,order = c(1,1,2))
+gdp.arima2 <- arima(gdp.diff,order = c(1,1,3))
+gdp.arima3 <- arima(gdp.diff,order = c(1,1,6))
+gdp.arima4 <- arima(gdp.diff,order = c(1,1,10))
+gdp.arima5 <- arima(gdp.diff,order = c(1,1,11))
+```
+
+
+```{r}
+gdp.arima6 <- arima(gdp.diff,order = c(4,1,1))
+gdp.arima7 <- arima(gdp.diff,order = c(4,1,2))
+
+#gdp.arima8 <- arima(gdp.diff,order = c(4,1,3))
+gdp.arima9 <- arima(gdp.diff,order = c(4,1,6))
+gdp.arima10 <- arima(gdp.diff,order = c(4,1,10))
+
+#gdp.arima11 <- arima(gdp.diff,order = c(4,1,11))
+
+#gdp.arima12 <- arima(gdp.diff,order = c(13,1,1))
+gdp.arima13 <- arima(gdp.diff,order = c(13,1,2))
+gdp.arima14 <- arima(gdp.diff,order = c(13,1,3))
+gdp.arima15 <- arima(gdp.diff,order = c(13,1,6))
+gdp.arima16 <- arima(gdp.diff,order = c(13,1,10))
+gdp.arima17 <- arima(gdp.diff,order = c(13,1,11))
+```
+
+
+```{r}
+gdp.arima 
+gdp.arima1 
+gdp.arima2 
+gdp.arima3 
+gdp.arima4 
+gdp.arima5
+```
+
+
+```{r}
+gdp.arima6 
+gdp.arima7 
+#gdp.arima8 
+gdp.arima9 
+gdp.arima10
+#gdp.arima11
+```
+
+
+```{r}
+#gdp.arima12
+gdp.arima13
+#gdp.arima14
+gdp.arima15
+gdp.arima16
+gdp.arima17
+```
+
+
+```{r}
+gdp.arima$loglik
+gdp.arima1$loglik
+gdp.arima2$loglik
+gdp.arima3$loglik
+gdp.arima4$loglik
+
+
+petrol.arima <- arima(diesel.diff,order = c(0,1,0))
+petrol.arima1 <- arima(diesel.diff,order = c(0,1,1))
+petrol.arima2 <- arima(diesel.diff,order = c(1,1,0))
+petrol.arima3 <- arima(diesel.diff,order = c(1,1,1))
+
+petrol.arima
+petrol.arima1
+petrol.arima2
+petrol.arima3
+
+
+
+diesel.arima <- arima(diesel.diff,order = c(1,2,0))
+diesel.arima1 <- arima(diesel.diff,order = c(1,2,2))
+diesel.arima2 <- arima(diesel.diff,order = c(2,2,0))
+diesel.arima3 <- arima(diesel.diff,order = c(2,2,1))
+diesel.arima4 <- arima(diesel.diff,order = c(3,2,0))
+diesel.arima5 <- arima(diesel.diff,order = c(3,2,1))
+diesel.arima
+diesel.arima1
+diesel.arima2
+diesel.arima3
+diesel.arima4
+diesel.arima5
+```
+
+##    TEST FOR  WHITENOISE
+
+ARE THE RESIDUALS  OF ARIMA FOLLOWING THE WN PROCESS
+From the ACF and PACF plots, we do not observe any auto-regressive nature in our residuals. The Ljung Box test, further confirms our belief that the residuals from the best fit model is not autocorrelated as p-value significantly greater than 0.05.
+```{r}
+LB_test <- Box.test(diesel.arima$residuals, type='Ljung-Box')
+print(LB_test)
+LB_test <- Box.test(petrol.arima$residuals, type='Ljung-Box')
+print(LB_test)
+LB_test <- Box.test(gdp.arima$residuals, type='Ljung-Box')
+print(LB_test)
+
+forecast::checkresiduals(petrol.arima3)
+forecast::checkresiduals(diesel.arima1)
+forecast::checkresiduals(gdp.arima17)
+
+#forecast::checkresiduals(petrol.arima1)
+#forecast::checkresiduals(diesel.arima1)
+
+acf(diesel.arima1$residuals)
+acf(petrol.arima3$residuals)
+acf(gdp.arima17$residuals)
+
+pacf(diesel.arima1$residuals)
+pacf(gdp.arima17$residuals)
+pacf(petrol.arima3$residuals)
+
+
+```
+
+##    FORECAST
+```{r}
+diesel.arima1 %>%
+  forecast(h = 5) %>%
+  autoplot()
+
+gdp.arima17 %>%
+  forecast(h = 5) %>%
+  autoplot()
+
+petrol.arima3 %>%
+  forecast(h = 5) %>%
+  autoplot()
+
+
+diesel.ts %>%
+  forecast(h = 10) %>%
+  autoplot()
+
+gdp.ts %>%
+  forecast(h = 10) %>%
+  autoplot()
+
+petrol.ts %>%
+  forecast(h = 10) %>%
+  autoplot()
+```
+##analysis
+
+```{r}
+library(readxl)
+generated <- read_excel("C:/Users/Meshack/Desktop/generated.xlsx", 
+    sheet = "Sheet1")
+View(generated)
+pol <- generated
+pol
+
+library(dplyr)
+
+New_pol <- pol %>% select(-Time, -Rain_season, -Wind_Speed, -Abudance, -Insect_Family, -Insect_Order, -Insect_Species, -Insect_act, -collector_name)
+
+View(New_pol)
+
+model <- lm(New_pol$Insect_ID ~ New_pol$Temp + New_pol$Cloud_Cover)
+
+model
+
+insect <- (-0.5943) + (0.1732 * 25) - (-0.0204 * 25)
+
+insect
+```
